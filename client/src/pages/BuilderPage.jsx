@@ -11,7 +11,7 @@ import AgentProgressDashboard from '../components/AgentProgressDashboard';
 import PublishModal from '../components/PublishModal';
 import api from '../api/api';
 import toast from 'react-hot-toast';
-import {exportProjectZip} from '../utils/exportProject'
+import { exportProjectZip } from '../utils/exportProject'
 
 const BuilderPage = () => {
 
@@ -94,7 +94,7 @@ const BuilderPage = () => {
                     <div className="flex-1 overflow-hidden">
                         {
                             leftTab === 'chat' ? (
-                                <ChatPanel messages={activeProject.messages} onSend={handleChat} lodaing={chatLoading} />
+                                <ChatPanel messages={activeProject.messages} onSend={handleChat} loading={chatLoading} />
                             ) : (
                                 <FileExplorer files={activeProject.files} activeFile={activeFile} onFileSelect={(path) => {
                                     setActiveFile(path);

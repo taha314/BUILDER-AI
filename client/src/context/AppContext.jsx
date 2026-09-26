@@ -5,12 +5,31 @@ import { useNavigate } from "react-router-dom";
 import debounce from "lodash.debounce";
 
 const AppContext = createContext(undefined);
+const SESSION_HINT_KEY = "builderai-session";
+
+function getSessionHint() {
+    try {
+        return localStorage.getItem(SESSION_HINT_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function setSessionHint(value) {
+    try {
+        localStorage.setItem(SESSION_HINT_KEY, value);
+    } catch {
+        // Authentication continues to use the HttpOnly cookie if storage is unavailable.
+    }
+}
 
 export function AppContextProvider({ children }) {
     const navigate = useNavigate();
     // Auth state
     const [user, setUser] = useState(null);
-    const [loadingUser, setLoadingUser] = useState(true);
+    const [loadingUser, setLoadingUser] = useState(
+        () => getSessionHint() !== "none"
+    );
 
     // States
     const [projects, setProjects] = useState([]);
@@ -23,26 +42,38 @@ export function AppContextProvider({ children }) {
     const [showCode, setShowCode] = useState(false);
 
     // Auth Actions
-    const checkSession = async () => {
-        try {
-            const { data } = await api.get("/api/auth/me");
-            setUser(data.user);
-        }
-        catch (error) {
-            setUser(null);
-        }
-        finally {
-            setLoadingUser(false)
-        }
-    }
-
     useEffect(() => {
+        if (getSessionHint() === "none") return;
+
+        let isMounted = true;
+        const checkSession = async () => {
+            try {
+                const { data } = await api.get("/api/auth/me");
+                if (isMounted) {
+                    setSessionHint("active");
+                    setUser(data.user);
+                }
+            } catch (error) {
+                if (!isMounted) return;
+                setUser(null);
+                if (error?.response?.status === 401 || error?.response?.status === 404) {
+                    setSessionHint("none");
+                }
+            } finally {
+                if (isMounted) setLoadingUser(false);
+            }
+        };
+
         checkSession();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const login = async (email, password) => {
         try {
             const { data } = await api.post("/api/auth/login", { email, password });
+            setSessionHint("active");
             setUser(data.user)
             toast.success("Welcome back!")
             navigate("/")
@@ -57,6 +88,7 @@ export function AppContextProvider({ children }) {
     const signup = async (name, email, password) => {
         try {
             const { data } = await api.post("/api/auth/register", { name, email, password });
+            setSessionHint("active");
             setUser(data.user)
             toast.success("Account created successfully!")
             navigate("/")
@@ -71,6 +103,7 @@ export function AppContextProvider({ children }) {
     const logout = async () => {
         try {
             await api.post("/api/auth/logout")
+            setSessionHint("none");
             setUser(null)
             setProjects([])
             setActiveProject(null)
@@ -211,7 +244,7 @@ export function AppContextProvider({ children }) {
 
     useEffect(() => {
         return () => {
-            debouncedSave.flush ();
+            debouncedSave.flush();
         }
     }, [debouncedSave])
 

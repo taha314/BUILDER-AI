@@ -28,5 +28,8 @@ export function normalizeContent(content) {
     // This is safe because "contains escaped quotes" is always invalid syntax in JSX/React.
     content = content.replace(/(\w+)=\\"([^"]*?)\\"/g, '$1="$2"');
 
+    // Restore template literals whose delimiters were unnecessarily escaped in JSX expressions.
+    content = content.replace(/\{\\`([^`\n]*)\\`\}/g, '{`$1`}');
+
     return content;
 }

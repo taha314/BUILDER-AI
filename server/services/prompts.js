@@ -215,6 +215,7 @@ Good copy makes design feel premium. Follow these rules:
 - Do NOT use TypeScript, use plain .js/.jsx files
 - ALWAYS use single quotes (') for JSX className attributes to prevent JSON escaping conflicts
 - For JS string literals with apostrophes (e.g. "don't"), use double quotes or backticks instead: \`const t = "don't"\` not \`const t = 'don\\'t'\`
+- Never prefix JavaScript template-literal delimiters with a backslash in generated source.
 - Make ALL pages fully responsive: mobile-first using Tailwind's \`sm:\`, \`md:\`, \`lg:\` breakpoints
 - Headings must use semantic tags: \`<h1>\`, \`<h2>\`, \`<h3>\` — not just styled \`<div>\`s
 - Use \`<nav>\`, \`<main>\`, \`<section>\`, \`<footer>\` semantic HTML elements
@@ -302,25 +303,25 @@ Rules:
 - Do NOT write any code — only plan the file list`;
 
 export function buildFileCodeSystem(allFiles, alreadyGeneratedFiles) {
-    const fileList = allFiles
-        .map((f) => {
-            const impStr = f.imports && f.imports.length > 0 ? ` (Imports: ${f.imports.join(", ")})` : "";
-            const expStr = f.exports ? ` (Exports: ${f.exports})` : "";
-            return `  ${f.path}: ${f.description}${impStr}${expStr}`;
-        })
-        .join("\n");
+  const fileList = allFiles
+    .map((f) => {
+      const impStr = f.imports && f.imports.length > 0 ? ` (Imports: ${f.imports.join(", ")})` : "";
+      const expStr = f.exports ? ` (Exports: ${f.exports})` : "";
+      return `  ${f.path}: ${f.description}${impStr}${expStr}`;
+    })
+    .join("\n");
 
-    let contextStr = "";
-    if (alreadyGeneratedFiles && Object.keys(alreadyGeneratedFiles).length > 0) {
-        contextStr =
-            "\n\nCRITICAL CONTEXT — Already Generated Files:\n" +
-            "The following files have already been generated. You MUST align your exports, imports, CSS selectors, or props signatures EXACTLY with these files:\n";
-        for (const [path, code] of Object.entries(alreadyGeneratedFiles)) {
-            contextStr += `\nFile: ${path}\n\`\`\`javascript\n${code}\n\`\`\`\n`;
-        }
+  let contextStr = "";
+  if (alreadyGeneratedFiles && Object.keys(alreadyGeneratedFiles).length > 0) {
+    contextStr =
+      "\n\nCRITICAL CONTEXT — Already Generated Files:\n" +
+      "The following files have already been generated. You MUST align your exports, imports, CSS selectors, or props signatures EXACTLY with these files:\n";
+    for (const [path, code] of Object.entries(alreadyGeneratedFiles)) {
+      contextStr += `\nFile: ${path}\n\`\`\`javascript\n${code}\n\`\`\`\n`;
     }
+  }
 
-    return `${BASE_SYSTEM}
+  return `${BASE_SYSTEM}
 
 You are writing a SINGLE file for a React project.
 The full project file structure is:
