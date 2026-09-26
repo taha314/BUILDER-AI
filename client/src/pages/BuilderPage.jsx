@@ -27,7 +27,7 @@ const BuilderPage = () => {
     useEffect(() => {
         if (!id) return;
         loadProject(id)
-    }, [id])
+    }, [id, loadProject])
 
     const handleOpenPreview = () => {
         if (!id) return;

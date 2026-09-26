@@ -129,7 +129,7 @@ export function AppContextProvider({ children }) {
         }
     }
 
-    const loadProject = async (id, silent = false) => {
+    const loadProject = useCallback(async (id, silent = false) => {
         if (!user) return;
         if (!silent) setLoadingActiveProject(true)
         try {
@@ -154,7 +154,7 @@ export function AppContextProvider({ children }) {
         } finally {
             if (!silent) setLoadingActiveProject(false);
         }
-    }
+    }, [navigate, user]);
 
     // Automatically poll active project status if generating or pending
     useEffect(() => {
