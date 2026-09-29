@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import api from '../api/api'
+import api, { getApiErrorMessage } from '../api/api'
 import Loading from '../components/Loading'
 import { AlertCircleIcon } from 'lucide-react'
 import FullPagePreview from '../components/FullPagePreview'
@@ -11,30 +11,29 @@ const PublishPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  useEffect(()=>{
-    if(!id) return;
+  useEffect(() => {
+    if (!id) return;
 
-    const fetchPublicProject = async ()=>{
+    const fetchPublicProject = async () => {
       try {
-        const {data} = await api.get(`/api/projects/public/${id}`)
+        const { data } = await api.get(`/projects/public/${id}`)
         setProject(data)
       } catch (err) {
-        console.error("Failed to load public project:", err);
-        setError(err?.response?.data?.error || "This website is not available or is not published yet.");
-      }finally{
+        setError(getApiErrorMessage(err, "This website is not available or is not published yet."));
+      } finally {
         setLoading(false)
       }
     }
 
     fetchPublicProject();
 
-  },[id])
+  }, [id])
 
-  if(loading) {
+  if (loading) {
     return <Loading />
   }
 
-  if(error || !project){
+  if (error || !project) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-zinc-50 px-4 text-center">
         <div className='w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-4'>
@@ -48,7 +47,7 @@ const PublishPage = () => {
   }
 
   return (
-    <FullPagePreview files={project.files}/>
+    <FullPagePreview files={project.files} />
   )
 }
 

@@ -1,29 +1,47 @@
 import { User } from "../models/User.js";
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret"
+function sessionCookieOptions() {
+    const sameSite = process.env.COOKIE_SAME_SITE || "lax";
+    const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production" || sameSite === "none",
+        sameSite,
+        path: "/",
+    };
+
+    if (process.env.COOKIE_DOMAIN) options.domain = process.env.COOKIE_DOMAIN;
+    return options;
+}
 
 // Helper to set cookie
 const setSessionCookie = (res, payload) => {
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "30d" })
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "30d" })
     res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        ...sessionCookieOptions(),
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        path: "/",
     })
 }
 
 export async function register(req, res) {
-    const { name, email, password } = req.body
+    const { name, email, password } = req.body || {}
 
-    if (!name || !email || !password) {
+    if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
         res.status(400).json({ error: "Name, email, and password are required" })
         return;
     }
 
+    const trimmedName = name.trim();
     const trimmedEmail = email.toLowerCase().trim();
+    if (!trimmedName || trimmedName.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        res.status(400).json({ error: "Enter a valid name and email address" })
+        return;
+    }
+    if (password.length < 8 || Buffer.byteLength(password, "utf8") > 72) {
+        res.status(400).json({ error: "Password must be at least 8 characters and no more than 72 bytes" })
+        return;
+    }
+
     const existing = await User.findOne({ email: trimmedEmail })
     if (existing) {
         res.status(400).json({ error: "An account with this email already exists" })
@@ -31,7 +49,7 @@ export async function register(req, res) {
     }
 
     const user = await User.create({
-        name,
+        name: trimmedName,
         email: trimmedEmail,
         password
     })
@@ -48,10 +66,10 @@ export async function register(req, res) {
 }
 
 export async function login(req, res) {
-    const { email, password } = req.body
+    const { email, password } = req.body || {}
 
-    if (!email || !password) {
-        res.status(400).json({ error: "Email, and password are required" })
+    if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
+        res.status(400).json({ error: "Email and password are required" })
         return;
     }
 
@@ -70,7 +88,7 @@ export async function login(req, res) {
 
     setSessionCookie(res, { userId: user._id.toString(), email: user.email })
 
-    res.status(201).json({
+    res.status(200).json({
         user: {
             _id: user._id,
             name: user.name,
@@ -80,13 +98,7 @@ export async function login(req, res) {
 }
 
 export async function logout(_req, res) {
-    res.cookie("token", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0,
-        path: "/",
-    })
+    res.clearCookie("token", sessionCookieOptions())
     res.json({ success: true })
 }
 

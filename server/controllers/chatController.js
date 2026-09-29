@@ -110,9 +110,9 @@ export async function chat(req, res) {
         });
 
     } catch (err) {
-        console.error("[AI Revision Error]", err);
+        console.error("[AI Revision Error]", err.name || "Error", err.code || "");
         project.status = "completed";
         await project.save();
-        res.status(500).json({ error: err.message || "Failed to process revision request" });
+        res.status(502).json({ error: "AI revision failed. Please try again.", code: "AI_SERVICE_ERROR" });
     }
 }

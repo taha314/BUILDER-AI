@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import api from "../api/api"
+import api, { getApiErrorMessage } from "../api/api"
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import debounce from "lodash.debounce";
@@ -48,7 +48,7 @@ export function AppContextProvider({ children }) {
         let isMounted = true;
         const checkSession = async () => {
             try {
-                const { data } = await api.get("/api/auth/me");
+                const { data } = await api.get("/auth/me");
                 if (isMounted) {
                     setSessionHint("active");
                     setUser(data.user);
@@ -70,16 +70,29 @@ export function AppContextProvider({ children }) {
         };
     }, []);
 
+    useEffect(() => {
+        const handleUnauthorized = () => {
+            setSessionHint("none");
+            setUser(null);
+            setProjects([]);
+            setActiveProject(null);
+            navigate("/login", { replace: true });
+        };
+
+        window.addEventListener("builderai:unauthorized", handleUnauthorized);
+        return () => window.removeEventListener("builderai:unauthorized", handleUnauthorized);
+    }, [navigate]);
+
     const login = async (email, password) => {
         try {
-            const { data } = await api.post("/api/auth/login", { email, password });
+            const { data } = await api.post("/auth/login", { email, password });
             setSessionHint("active");
             setUser(data.user)
             toast.success("Welcome back!")
             navigate("/")
         } catch (err) {
             console.error("Login failed:", err);
-            const errMsg = err?.response?.data?.error || "Invalid email or password";
+            const errMsg = getApiErrorMessage(err, "Invalid email or password");
             toast.error(errMsg);
             throw new Error(errMsg);
         }
@@ -87,14 +100,14 @@ export function AppContextProvider({ children }) {
 
     const signup = async (name, email, password) => {
         try {
-            const { data } = await api.post("/api/auth/register", { name, email, password });
+            const { data } = await api.post("/auth/register", { name, email, password });
             setSessionHint("active");
             setUser(data.user)
             toast.success("Account created successfully!")
             navigate("/")
         } catch (err) {
             console.error("Signup failed:", err);
-            const errMsg = err?.response?.data?.error || "Registration failed";
+            const errMsg = getApiErrorMessage(err, "Registration failed");
             toast.error(errMsg);
             throw new Error(errMsg);
         }
@@ -102,7 +115,7 @@ export function AppContextProvider({ children }) {
 
     const logout = async () => {
         try {
-            await api.post("/api/auth/logout")
+            await api.post("/auth/logout")
             setSessionHint("none");
             setUser(null)
             setProjects([])
@@ -116,24 +129,23 @@ export function AppContextProvider({ children }) {
     }
 
     // Projects Actions
-    const loadProjects = async () => {
+    const loadProjects = useCallback(async () => {
         if (!user) return;
         try {
-            const { data } = await api.get("/api/projects")
+            const { data } = await api.get("/projects")
             setProjects(data)
         } catch (err) {
-            console.error("Failed to list projects:", err);
-            toast.error("Failed to load projects list");
+            toast.error(getApiErrorMessage(err, "Failed to load projects list"));
         } finally {
             setLoadingProjects(false);
         }
-    }
+    }, [user]);
 
     const loadProject = useCallback(async (id, silent = false) => {
         if (!user) return;
         if (!silent) setLoadingActiveProject(true)
         try {
-            const { data } = await api.get(`/api/projects/${id}`)
+            const { data } = await api.get(`/projects/${id}`)
             setActiveProject(data);
 
             // Default file selection
@@ -146,9 +158,8 @@ export function AppContextProvider({ children }) {
                 })
             }
         } catch (err) {
-            console.error("Failed to load project:", err);
             if (!silent) {
-                toast.error("Failed to load project details");
+                toast.error(getApiErrorMessage(err, "Failed to load project details"));
                 navigate("/");
             }
         } finally {
@@ -181,12 +192,11 @@ export function AppContextProvider({ children }) {
 
             setGeneratingProject(true);
             try {
-                const { data } = await api.post("/api/projects", { prompt });
+                const { data } = await api.post("/projects", { prompt });
                 toast.success("AI Agent is planning structure...")
                 navigate(`/builder/${data._id}`);
             } catch (err) {
-                console.error("Failed to generate project:", err);
-                toast.error(err?.response?.data?.error || "Failed to generate project");
+                toast.error(getApiErrorMessage(err, "Failed to generate project"));
             } finally {
                 setGeneratingProject(false);
             }
@@ -199,12 +209,11 @@ export function AppContextProvider({ children }) {
             if (!user) return;
 
             try {
-                await api.delete(`/api/projects/${id}`);
+                await api.delete(`/projects/${id}`);
                 setProjects((prev) => prev.filter((p) => p._id !== id))
                 toast.success("Project deleted successfully")
             } catch (err) {
-                console.error("Failed to delete project:", err);
-                toast.error("Failed to delete project");
+                toast.error(getApiErrorMessage(err, "Failed to delete project"));
             }
 
         }, [user]
@@ -215,7 +224,7 @@ export function AppContextProvider({ children }) {
             if (!activeProject || !user) return;
             setChatLoading(true)
             try {
-                const { data } = await api.post(`/api/projects/${activeProject._id}/chat`, { prompt });
+                const { data } = await api.post(`/projects/${activeProject._id}/chat`, { prompt });
                 setActiveProject(data)
                 if (data.errors && data.errors.length > 0) {
                     toast.error(`${data.errors.length} revision patch(es) failed`);
@@ -223,8 +232,7 @@ export function AppContextProvider({ children }) {
                     toast.success(`Updated to version ${data.version}`);
                 }
             } catch (err) {
-                console.error("Revision request failed:", err?.response?.data || err);
-                toast.error(err?.response?.data?.error || "Revision request failed");
+                toast.error(getApiErrorMessage(err, "Revision request failed"));
             } finally {
                 setChatLoading(false)
             }
@@ -234,10 +242,9 @@ export function AppContextProvider({ children }) {
     const debouncedSave = React.useMemo(
         () => debounce(async (files, id) => {
             try {
-                await api.put(`/api/projects/${id}/files`, { files })
+                await api.put(`/projects/${id}/files`, { files })
             } catch (err) {
-                console.error("Failed to auto-save files:", err);
-                toast.error("Failed to save code modifications");
+                toast.error(getApiErrorMessage(err, "Failed to save code modifications"));
             }
         }, 1000), [],
     )

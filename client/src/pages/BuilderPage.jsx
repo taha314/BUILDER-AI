@@ -9,7 +9,7 @@ import FileExplorer from '../components/FileExplorer';
 import PreviewPanel from '../components/PreviewPanel';
 import AgentProgressDashboard from '../components/AgentProgressDashboard';
 import PublishModal from '../components/PublishModal';
-import api from '../api/api';
+import api, { getApiErrorMessage } from '../api/api';
 import toast from 'react-hot-toast';
 import { exportProjectZip } from '../utils/exportProject'
 
@@ -38,13 +38,12 @@ const BuilderPage = () => {
         if (!id) return;
         setPublishing(true)
         try {
-            await api.post(`/api/projects/${id}/publish`);
+            await api.post(`/projects/${id}/publish`);
             const url = `${window.location.origin}/publish/${id}`;
             setPublishUrl(url);
             toast.success("Website published successfully!")
         } catch (err) {
-            console.error("Publish failed:", err);
-            toast.error(err?.response?.data?.error || "Publish failed");
+            toast.error(getApiErrorMessage(err, "Publish failed"));
         } finally {
             setPublishing(false)
         }
