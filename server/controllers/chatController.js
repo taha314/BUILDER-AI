@@ -5,7 +5,8 @@ import { applyOperations } from "../services/diff.js";
 export function buildManifest(files) {
     const manifest = [];
     for (const [path, entry] of Object.entries(files)) {
-        manifest.push({ path, hash: entry.hash, size: entry.content.length })
+        if (!entry || typeof entry.content !== "string") continue;
+        manifest.push({ path, hash: entry.hash || "unknown", size: entry.content.length })
     }
     return manifest;
 }
@@ -39,15 +40,20 @@ export async function chat(req, res) {
 
     try {
         // Build compact manifest (path + hash + size) instead of sending all code
-        const manifest = buildManifest(project.files);
+        const projectFiles = Object.fromEntries(
+            Object.entries(project.files || {}).filter(([, entry]) =>
+                entry && typeof entry.content === "string",
+            ),
+        );
+        const manifest = buildManifest(projectFiles);
 
         // Include ALL file contents so the AI can do accurate search/replace
         const relevantFiles = {};
-        for (const [path, entry] of Object.entries(project.files)) {
+        for (const [path, entry] of Object.entries(projectFiles)) {
             relevantFiles[path] = entry.content;
         }
 
-        const recentMessages = project.messages.slice(-6).map((m) => ({
+        const recentMessages = project.messages.slice(-7, -1).map((m) => ({
             role: m.role,
             content: m.content,
         }));
@@ -64,7 +70,7 @@ export async function chat(req, res) {
 
         // Apply operations to file map[cite: 62]
         const { files: updatedFiles, applied, errors } = applyOperations(
-            project.files,
+            projectFiles,
             result.operations
         );
 
@@ -104,7 +110,7 @@ export async function chat(req, res) {
         });
 
     } catch (err) {
-        console.error(`[AI Revision Error] ${err.message}`);
+        console.error("[AI Revision Error]", err);
         project.status = "completed";
         await project.save();
         res.status(500).json({ error: err.message || "Failed to process revision request" });

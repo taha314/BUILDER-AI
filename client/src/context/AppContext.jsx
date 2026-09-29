@@ -223,7 +223,7 @@ export function AppContextProvider({ children }) {
                     toast.success(`Updated to version ${data.version}`);
                 }
             } catch (err) {
-                console.error("Revision request failed:", err);
+                console.error("Revision request failed:", err?.response?.data || err);
                 toast.error(err?.response?.data?.error || "Revision request failed");
             } finally {
                 setChatLoading(false)
